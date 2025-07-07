@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -142,6 +142,27 @@ app.post('/api/user/validate', validateTelegramInitData, async (req, res) => {
     });
   } catch (error) {
     console.error('Error in /api/user/validate:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// New endpoint: Get entry dates for current month for a user
+app.get('/api/user/:telegramId/expenses/dates', validateTelegramInitData, async (req, res) => {
+  try {
+    const telegramId = parseInt(req.params.telegramId);
+    const year = parseInt(req.query.year);
+    const month = parseInt(req.query.month);
+    if (isNaN(telegramId) || isNaN(year) || isNaN(month)) {
+      return res.status(400).json({ error: 'Invalid parameters' });
+    }
+    // Only allow access if the validated user matches the requested user
+    if (req.validatedInitData.user.id !== telegramId) {
+      return res.status(403).json({ error: 'Forbidden: user mismatch' });
+    }
+    const days = await getExpenseEntryDatesForMonth(telegramId, year, month);
+    res.json({ days });
+  } catch (error) {
+    console.error('Error in /api/user/:telegramId/expenses/dates:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

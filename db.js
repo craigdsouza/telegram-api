@@ -60,8 +60,39 @@ async function testConnection() {
   }
 }
 
+// Get unique days in a month where the user has expenses
+async function getExpenseEntryDatesForMonth(telegramUserId, year, month) {
+  try {
+    // Get the internal user id from telegram_user_id
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE telegram_user_id = $1',
+      [telegramUserId]
+    );
+    if (userResult.rows.length === 0) {
+      return [];
+    }
+    const userId = userResult.rows[0].id;
+    // Query for all expenses for this user in the given month
+    // Assume date is stored as DATE or TIMESTAMP in a column named date or created_at
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 1);
+    const result = await pool.query(
+      `SELECT DISTINCT EXTRACT(DAY FROM created_at) AS day
+       FROM expenses
+       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
+       ORDER BY day`,
+      [userId, start, end]
+    );
+    return result.rows.map(row => row.day);
+  } catch (error) {
+    console.error('❌ Error fetching expense entry dates:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   pool,
   getUserByTelegramId,
-  testConnection
+  testConnection,
+  getExpenseEntryDatesForMonth
 }; 
