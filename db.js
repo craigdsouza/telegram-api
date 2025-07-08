@@ -126,9 +126,76 @@ async function getExpenseEntryDatesForMonth(telegramUserId, year, month) {
   }
 }
 
+// Get mission progress for a user
+async function getUserMissionProgress(telegramUserId) {
+  try {
+    console.log('🎯 [MISSIONS] Starting getUserMissionProgress');
+    console.log('🎯 [MISSIONS] Parameters:', { telegramUserId });
+    
+    // Get the internal user id from telegram_user_id
+    console.log('🎯 [MISSIONS] Querying users table for telegram_user_id:', telegramUserId);
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE telegram_user_id = $1',
+      [telegramUserId]
+    );
+    
+    console.log('🎯 [MISSIONS] User query result rows:', userResult.rows.length);
+    
+    if (userResult.rows.length === 0) {
+      console.log('❌ [MISSIONS] No user found for telegram_user_id:', telegramUserId);
+      return {
+        babySteps: 0,
+        juniorAnalyst: 0
+      };
+    }
+    
+    const userId = userResult.rows[0].id;
+    console.log('🎯 [MISSIONS] Found internal user ID:', userId);
+    
+    // Mission 1: Baby Steps - Count distinct days with expenses
+    console.log('🎯 [MISSIONS] Calculating Baby Steps progress...');
+    const babyStepsResult = await pool.query(
+      `SELECT COUNT(DISTINCT DATE(created_at)) as distinct_days
+       FROM expenses
+       WHERE user_id = $1`,
+      [userId]
+    );
+    
+    const babySteps = parseInt(babyStepsResult.rows[0]?.distinct_days || 0);
+    console.log('🎯 [MISSIONS] Baby Steps progress:', babySteps);
+    
+    // Mission 2: Junior Budget Analyst - Count distinct categories
+    console.log('🎯 [MISSIONS] Calculating Junior Budget Analyst progress...');
+    const juniorAnalystResult = await pool.query(
+      `SELECT COUNT(DISTINCT category) as distinct_categories
+       FROM expenses
+       WHERE user_id = $1`,
+      [userId]
+    );
+    
+    const juniorAnalyst = parseInt(juniorAnalystResult.rows[0]?.distinct_categories || 0);
+    console.log('🎯 [MISSIONS] Junior Budget Analyst progress:', juniorAnalyst);
+    
+    const progress = {
+      babySteps,
+      juniorAnalyst
+    };
+    
+    console.log('🎯 [MISSIONS] Final mission progress:', progress);
+    return progress;
+    
+  } catch (error) {
+    console.error('❌ [MISSIONS] Error fetching mission progress:', error);
+    console.error('❌ [MISSIONS] Error message:', error.message);
+    console.error('❌ [MISSIONS] Error stack:', error.stack);
+    throw error;
+  }
+}
+
 module.exports = {
   pool,
   getUserByTelegramId,
   testConnection,
-  getExpenseEntryDatesForMonth
+  getExpenseEntryDatesForMonth,
+  getUserMissionProgress
 }; 

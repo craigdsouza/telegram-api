@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -209,6 +209,53 @@ app.get('/api/user/:telegramId/expenses/dates', validateTelegramInitData, async 
   } catch (error) {
     console.error('❌ [CALENDAR] Error in /api/user/:telegramId/expenses/dates:', error);
     console.error('❌ [CALENDAR] Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// New endpoint: Get mission progress for a user
+app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, res) => {
+  try {
+    console.log('🎯 [MISSIONS] Starting mission progress request');
+    console.log('🎯 [MISSIONS] Request params:', req.params);
+    console.log('🎯 [MISSIONS] Validated user from init data:', req.validatedInitData.user);
+    
+    const telegramId = parseInt(req.params.telegramId);
+    
+    console.log('🎯 [MISSIONS] Parsed telegram ID:', telegramId);
+    
+    if (isNaN(telegramId)) {
+      console.log('❌ [MISSIONS] Invalid telegram ID detected');
+      return res.status(400).json({ error: 'Invalid telegram ID' });
+    }
+    
+    // Only allow access if the validated user matches the requested user
+    if (req.validatedInitData.user.id !== telegramId) {
+      console.log('❌ [MISSIONS] User mismatch detected');
+      console.log('🎯 [MISSIONS] Requested user ID:', telegramId);
+      console.log('🎯 [MISSIONS] Validated user ID:', req.validatedInitData.user.id);
+      return res.status(403).json({ error: 'Forbidden: user mismatch' });
+    }
+    
+    console.log('🎯 [MISSIONS] User validation passed, fetching mission progress...');
+    console.log('🎯 [MISSIONS] Calling getUserMissionProgress with:', { telegramId });
+    
+    const missionProgress = await getUserMissionProgress(telegramId);
+    
+    console.log('🎯 [MISSIONS] Database query completed');
+    console.log('🎯 [MISSIONS] Mission progress:', missionProgress);
+    
+    const response = {
+      babySteps: missionProgress.babySteps,
+      juniorAnalyst: missionProgress.juniorAnalyst
+    };
+    
+    console.log('🎯 [MISSIONS] Sending response:', response);
+    
+    res.json(response);
+  } catch (error) {
+    console.error('❌ [MISSIONS] Error in /api/user/:telegramId/missions:', error);
+    console.error('❌ [MISSIONS] Error stack:', error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
