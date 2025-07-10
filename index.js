@@ -20,6 +20,11 @@ if (!BOT_TOKEN) {
 app.use(cors()); // Allow cross-origin requests from your mini app
 app.use(express.json()); // Parse JSON request bodies
 
+// List of test user IDs for dev bypass
+const DEV_USER_IDS = new Set(
+  (process.env.DEV_USER_IDS || '').split(',').map(id => Number(id.trim())).filter(Boolean)
+);
+
 // Telegram init data validation middleware
 const validateTelegramInitData = (req, res, next) => {
   try {
@@ -54,6 +59,25 @@ const validateTelegramInitData = (req, res, next) => {
       console.log('❌ [AUTH] No init data provided');
       return res.status(401).json({ error: 'No init data provided' });
     }
+
+    // --- DEV BYPASS LOGIC ---
+    const devBypass = req.headers['x-dev-bypass'] === 'true' && process.env.NODE_ENV !== 'production';
+    if (devBypass) {
+      try {
+        const { parse } = require('@telegram-apps/init-data-node');
+        const initData = parse(initDataRaw);
+        if (initData && initData.user && DEV_USER_IDS.has(Number(initData.user.id))) {
+          console.log('🧪 [DEV BYPASS] Skipping signature validation for test user:', initData.user.id);
+          req.validatedInitData = initData;
+          return next();
+        } else {
+          console.log('🧪 [DEV BYPASS] User not in DEV_USER_IDS or invalid initData:', initData?.user?.id);
+        }
+      } catch (err) {
+        console.log('🧪 [DEV BYPASS] Failed to parse initDataRaw:', err.message);
+      }
+    }
+    // --- END DEV BYPASS LOGIC ---
 
     console.log('🔍 [AUTH] Validating init data...');
     console.log('🔍 [AUTH] Bot token present:', !!BOT_TOKEN);
