@@ -67,7 +67,7 @@ const validateTelegramInitData = (req, res, next) => {
       try {
         const { parse } = require('@telegram-apps/init-data-node');
         const initData = parse(initDataRaw);
-        console.log('[DEV BYPASS] Parsed user id from initData:', initData?.user?.id);
+        console.log('[DEV BYPASS] Parsed user id from initData:', initData?.user);
         if (initData && initData.user && DEV_USER_IDS.has(Number(initData.user.id))) {
           console.log('🧪 [DEV BYPASS] Skipping signature validation for test user:', initData.user.id);
           req.validatedInitData = initData;
