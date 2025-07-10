@@ -24,6 +24,7 @@ app.use(express.json()); // Parse JSON request bodies
 const DEV_USER_IDS = new Set(
   (process.env.DEV_USER_IDS || '').split(',').map(id => Number(id.trim())).filter(Boolean)
 );
+console.log('[DEV] BACKEND DEV_USER_IDS:', Array.from(DEV_USER_IDS));
 
 // Telegram init data validation middleware
 const validateTelegramInitData = (req, res, next) => {
@@ -59,13 +60,14 @@ const validateTelegramInitData = (req, res, next) => {
       console.log('❌ [AUTH] No init data provided');
       return res.status(401).json({ error: 'No init data provided' });
     }
-
+    
     // --- DEV BYPASS LOGIC ---
     const devBypass = req.headers['x-dev-bypass'] === 'true' && process.env.NODE_ENV !== 'production';
     if (devBypass) {
       try {
         const { parse } = require('@telegram-apps/init-data-node');
         const initData = parse(initDataRaw);
+        console.log('[DEV BYPASS] Parsed user id from initData:', initData?.user?.id);
         if (initData && initData.user && DEV_USER_IDS.has(Number(initData.user.id))) {
           console.log('🧪 [DEV BYPASS] Skipping signature validation for test user:', initData.user.id);
           req.validatedInitData = initData;
