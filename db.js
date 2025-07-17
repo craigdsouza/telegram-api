@@ -259,6 +259,37 @@ async function getCurrentMonthBudgetData(telegramUserId) {
     const allTimeTotal = parseFloat(totalExpensesCheck.rows[0]?.total_amount || 0);
     console.log('💰 [BUDGET] All-time total expenses for user:', allTimeTotal);
     
+    // Let's check a few sample expenses to see their created_at values
+    const sampleExpenses = await pool.query(
+      `SELECT amount, created_at, created_at::text as created_at_text
+       FROM expenses
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 5`,
+      [userId]
+    );
+    console.log('💰 [BUDGET] Sample expenses (latest 5):', sampleExpenses.rows);
+    
+    // Let's also check how many expenses fall within our date range
+    const countInRange = await pool.query(
+      `SELECT COUNT(*) as count
+       FROM expenses
+       WHERE user_id = $1 
+       AND created_at >= $2 
+       AND created_at < $3`,
+      [userId, startOfMonth, endOfMonth]
+    );
+    console.log('💰 [BUDGET] Number of expenses in date range:', countInRange.rows[0]?.count);
+    
+    // Let's check total count for this user
+    const totalCount = await pool.query(
+      `SELECT COUNT(*) as count
+       FROM expenses
+       WHERE user_id = $1`,
+      [userId]
+    );
+    console.log('💰 [BUDGET] Total number of expenses for user:', totalCount.rows[0]?.count);
+    
     const expensesResult = await pool.query(
       `SELECT COALESCE(SUM(amount), 0) as total_amount
        FROM expenses
@@ -270,8 +301,21 @@ async function getCurrentMonthBudgetData(telegramUserId) {
 
     console.log('💰 [BUDGET] Expenses filtered result (raw):', expensesResult.rows);
     
+    // Let's try an alternative approach using PostgreSQL date functions
+    const alternativeResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as total_amount
+       FROM expenses
+       WHERE user_id = $1 
+       AND EXTRACT(YEAR FROM created_at) = $2
+       AND EXTRACT(MONTH FROM created_at) = $3`,
+      [userId, year, month + 1] // month + 1 because EXTRACT(MONTH) returns 1-12
+    );
+    console.log('💰 [BUDGET] Alternative query result (using EXTRACT):', alternativeResult.rows);
+    
     const totalExpenses = parseFloat(expensesResult.rows[0]?.total_amount || 0);
+    const alternativeTotal = parseFloat(alternativeResult.rows[0]?.total_amount || 0);
     console.log('💰 [BUDGET] Total expenses for current month:', totalExpenses);
+    console.log('💰 [BUDGET] Alternative total (using EXTRACT):', alternativeTotal);
     console.log('💰 [BUDGET] Difference (all-time vs current month):', allTimeTotal - totalExpenses);
     
     // Calculate percentages
