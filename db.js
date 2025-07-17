@@ -235,20 +235,42 @@ async function getCurrentMonthBudgetData(telegramUserId) {
     
     // Get current month's total expenses
     const currentDate = new Date();
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth(); // 0-indexed
     
-    console.log('💰 [BUDGET] Date range for query:', { startOfMonth, endOfMonth });
+    // Create proper date boundaries for the current month
+    const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0); // First day of month at 00:00:00
+    const endOfMonth = new Date(year, month + 1, 1, 0, 0, 0, 0); // First day of next month at 00:00:00
+    
+    console.log('💰 [BUDGET] Date range for query:', { 
+      startOfMonth: startOfMonth.toISOString(), 
+      endOfMonth: endOfMonth.toISOString(),
+      year,
+      month: month + 1 // Display as 1-indexed for clarity
+    });
+    
+    // First, let's check how many total expenses this user has
+    const totalExpensesCheck = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as total_amount
+       FROM expenses
+       WHERE user_id = $1`,
+      [userId]
+    );
+    const allTimeTotal = parseFloat(totalExpensesCheck.rows[0]?.total_amount || 0);
+    console.log('💰 [BUDGET] All-time total expenses for user:', allTimeTotal);
     
     const expensesResult = await pool.query(
       `SELECT COALESCE(SUM(amount), 0) as total_amount
        FROM expenses
-       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3`,
+       WHERE user_id = $1 
+       AND created_at >= $2 
+       AND created_at < $3`,
       [userId, startOfMonth, endOfMonth]
     );
     
     const totalExpenses = parseFloat(expensesResult.rows[0]?.total_amount || 0);
     console.log('💰 [BUDGET] Total expenses for current month:', totalExpenses);
+    console.log('💰 [BUDGET] Difference (all-time vs current month):', allTimeTotal - totalExpenses);
     
     // Calculate percentages
     const currentDateOfMonth = currentDate.getDate();
