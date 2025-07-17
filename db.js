@@ -201,10 +201,10 @@ async function getUserMissionProgress(telegramUserId) {
 }
 
 // Get budget and expense data for current month
-async function getCurrentMonthBudgetData(telegramUserId) {
+async function getCurrentMonthBudgetData(telegramUserId, year, month) {
   try {
     console.log('💰 [BUDGET] Starting getCurrentMonthBudgetData');
-    console.log('💰 [BUDGET] Parameters:', { telegramUserId });
+    console.log('💰 [BUDGET] Parameters:', { telegramUserId, year, month });
     
     // Get the internal user id from telegram_user_id
     console.log('💰 [BUDGET] Querying users table for telegram_user_id:', telegramUserId);
@@ -221,7 +221,7 @@ async function getCurrentMonthBudgetData(telegramUserId) {
         totalExpenses: 0,
         budget: null,
         currentDate: new Date().getDate(),
-        daysInMonth: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate(),
+        daysInMonth: new Date(year, month, 0).getDate(),
         budgetPercentage: 0,
         datePercentage: 0,
         currency: 'INR'
@@ -233,20 +233,16 @@ async function getCurrentMonthBudgetData(telegramUserId) {
     console.log('💰 [BUDGET] Found internal user ID:', userId);
     console.log('💰 [BUDGET] User budget:', budget);
     
-    // Get current month's total expenses
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth(); // 0-indexed
-    
-    // Create proper date boundaries for the current month
-    const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0); // First day of month at 00:00:00
-    const endOfMonth = new Date(year, month + 1, 1, 0, 0, 0, 0); // First day of next month at 00:00:00
+    // Use the provided year and month instead of current date
+    // month is 1-indexed (1-12), so we need to convert to 0-indexed for Date constructor
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0); // First day of month at 00:00:00
+    const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0); // First day of next month at 00:00:00
     
     console.log('💰 [BUDGET] Date range for query:', { 
       startOfMonth: startOfMonth.toISOString(), 
       endOfMonth: endOfMonth.toISOString(),
       year,
-      month: month + 1 // Display as 1-indexed for clarity
+      month
     });
     
     // First, let's check how many total expenses this user has
@@ -308,7 +304,7 @@ async function getCurrentMonthBudgetData(telegramUserId) {
        WHERE user_id = $1 
        AND EXTRACT(YEAR FROM created_at) = $2
        AND EXTRACT(MONTH FROM created_at) = $3`,
-      [userId, year, month + 1] // month + 1 because EXTRACT(MONTH) returns 1-12
+      [userId, year, month] // month is already 1-indexed
     );
     console.log('💰 [BUDGET] Alternative query result (using EXTRACT):', alternativeResult.rows);
     
@@ -319,8 +315,8 @@ async function getCurrentMonthBudgetData(telegramUserId) {
     console.log('💰 [BUDGET] Difference (all-time vs current month):', allTimeTotal - totalExpenses);
     
     // Calculate percentages
-    const currentDateOfMonth = currentDate.getDate();
-    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    const currentDateOfMonth = new Date().getDate(); // Current day of month
+    const daysInMonth = new Date(year, month, 0).getDate(); // Days in the specified month
     const datePercentage = (currentDateOfMonth / daysInMonth) * 100;
     const budgetPercentage = budget && budget > 0 ? (totalExpenses / budget) * 100 : 0;
     

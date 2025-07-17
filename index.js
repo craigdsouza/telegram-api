@@ -292,15 +292,23 @@ app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, 
   try {
     console.log('💰 [BUDGET] Starting budget data request');
     console.log('💰 [BUDGET] Request params:', req.params);
+    console.log('💰 [BUDGET] Request query:', req.query);
     console.log('💰 [BUDGET] Validated user from init data:', req.validatedInitData.user);
     
     const telegramId = parseInt(req.params.telegramId);
+    const year = parseInt(req.query.year);
+    const month = parseInt(req.query.month);
     
-    console.log('💰 [BUDGET] Parsed telegram ID:', telegramId);
+    console.log('💰 [BUDGET] Parsed parameters:', { telegramId, year, month });
     
     if (isNaN(telegramId)) {
       console.log('❌ [BUDGET] Invalid telegram ID detected');
       return res.status(400).json({ error: 'Invalid telegram ID' });
+    }
+    
+    if (isNaN(year) || isNaN(month)) {
+      console.log('❌ [BUDGET] Invalid year or month detected');
+      return res.status(400).json({ error: 'Invalid year or month' });
     }
     
     // Only allow access if the validated user matches the requested user
@@ -312,9 +320,9 @@ app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, 
     }
     
     console.log('💰 [BUDGET] User validation passed, fetching budget data...');
-    console.log('💰 [BUDGET] Calling getCurrentMonthBudgetData with:', { telegramId });
+    console.log('💰 [BUDGET] Calling getCurrentMonthBudgetData with:', { telegramId, year, month });
     
-    const budgetData = await getCurrentMonthBudgetData(telegramId);
+    const budgetData = await getCurrentMonthBudgetData(telegramId, year, month);
     
     console.log('💰 [BUDGET] Database query completed');
     console.log('💰 [BUDGET] Budget data:', budgetData);
