@@ -244,7 +244,7 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
     const expenses = await pool.query(
       `SELECT COALESCE(SUM(amount), 0) as total_amount
        FROM expenses
-       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3`,
+       WHERE user_id = $1 AND date >= $2 AND date < $3`,
       [userId, startOfMonth, endOfMonth]
     );
     
