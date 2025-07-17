@@ -135,7 +135,7 @@ async function getUserMissionProgress(telegramUserId) {
     // Get the internal user id from telegram_user_id
     console.log('🎯 [MISSIONS] Querying users table for telegram_user_id:', telegramUserId);
     const userResult = await pool.query(
-      'SELECT id FROM users WHERE telegram_user_id = $1',
+      'SELECT id, budget FROM users WHERE telegram_user_id = $1',
       [telegramUserId]
     );
     
@@ -145,12 +145,15 @@ async function getUserMissionProgress(telegramUserId) {
       console.log('❌ [MISSIONS] No user found for telegram_user_id:', telegramUserId);
       return {
         babySteps: 0,
-        juniorAnalyst: 0
+        juniorAnalyst: 0,
+        budgetSet: false
       };
     }
     
     const userId = userResult.rows[0].id;
+    const budgetValue = userResult.rows[0].budget;
     console.log('🎯 [MISSIONS] Found internal user ID:', userId);
+    console.log('🎯 [MISSIONS] User budget value:', budgetValue);
     
     // Mission 1: Baby Steps - Count distinct days with expenses
     console.log('🎯 [MISSIONS] Calculating Baby Steps progress...');
@@ -164,21 +167,26 @@ async function getUserMissionProgress(telegramUserId) {
     const babySteps = parseInt(babyStepsResult.rows[0]?.distinct_days || 0);
     console.log('🎯 [MISSIONS] Baby Steps progress:', babySteps);
     
-    // Mission 2: Junior Budget Analyst - Count distinct categories
+    // Mission 2: Junior Budget Analyst - Count distinct days with expenses (same as Baby Steps for now)
     console.log('🎯 [MISSIONS] Calculating Junior Budget Analyst progress...');
     const juniorAnalystResult = await pool.query(
-      `SELECT COUNT(DISTINCT category) as distinct_categories
+      `SELECT COUNT(DISTINCT DATE(created_at)) as distinct_days
        FROM expenses
        WHERE user_id = $1`,
       [userId]
     );
     
-    const juniorAnalyst = parseInt(juniorAnalystResult.rows[0]?.distinct_categories || 0);
+    const juniorAnalyst = parseInt(juniorAnalystResult.rows[0]?.distinct_days || 0);
     console.log('🎯 [MISSIONS] Junior Budget Analyst progress:', juniorAnalyst);
+    
+    // Check if budget is set (non-null and greater than 0)
+    const budgetSet = budgetValue !== null && parseFloat(budgetValue) > 0;
+    console.log('🎯 [MISSIONS] Budget set status:', budgetSet);
     
     const progress = {
       babySteps,
-      juniorAnalyst
+      juniorAnalyst,
+      budgetSet
     };
     
     console.log('🎯 [MISSIONS] Final mission progress:', progress);

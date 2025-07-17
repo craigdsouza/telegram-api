@@ -273,7 +273,8 @@ app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, 
     
     const response = {
       babySteps: missionProgress.babySteps,
-      juniorAnalyst: missionProgress.juniorAnalyst
+      juniorAnalyst: missionProgress.juniorAnalyst,
+      budgetSet: missionProgress.budgetSet
     };
     
     console.log('🎯 [MISSIONS] Sending response:', response);
