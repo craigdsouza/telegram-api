@@ -200,10 +200,95 @@ async function getUserMissionProgress(telegramUserId) {
   }
 }
 
+// Get budget and expense data for current month
+async function getCurrentMonthBudgetData(telegramUserId) {
+  try {
+    console.log('💰 [BUDGET] Starting getCurrentMonthBudgetData');
+    console.log('💰 [BUDGET] Parameters:', { telegramUserId });
+    
+    // Get the internal user id from telegram_user_id
+    console.log('💰 [BUDGET] Querying users table for telegram_user_id:', telegramUserId);
+    const userResult = await pool.query(
+      'SELECT id, budget FROM users WHERE telegram_user_id = $1',
+      [telegramUserId]
+    );
+    
+    console.log('💰 [BUDGET] User query result rows:', userResult.rows.length);
+    
+    if (userResult.rows.length === 0) {
+      console.log('❌ [BUDGET] No user found for telegram_user_id:', telegramUserId);
+      return {
+        totalExpenses: 0,
+        budget: null,
+        currentDate: new Date().getDate(),
+        daysInMonth: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate(),
+        budgetPercentage: 0,
+        datePercentage: 0,
+        currency: 'INR'
+      };
+    }
+    
+    const userId = userResult.rows[0].id;
+    const budget = userResult.rows[0].budget;
+    console.log('💰 [BUDGET] Found internal user ID:', userId);
+    console.log('💰 [BUDGET] User budget:', budget);
+    
+    // Get current month's total expenses
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    
+    console.log('💰 [BUDGET] Date range for query:', { startOfMonth, endOfMonth });
+    
+    const expensesResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as total_amount
+       FROM expenses
+       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3`,
+      [userId, startOfMonth, endOfMonth]
+    );
+    
+    const totalExpenses = parseFloat(expensesResult.rows[0]?.total_amount || 0);
+    console.log('💰 [BUDGET] Total expenses for current month:', totalExpenses);
+    
+    // Calculate percentages
+    const currentDateOfMonth = currentDate.getDate();
+    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    const datePercentage = (currentDateOfMonth / daysInMonth) * 100;
+    const budgetPercentage = budget && budget > 0 ? (totalExpenses / budget) * 100 : 0;
+    
+    console.log('💰 [BUDGET] Calculated percentages:', {
+      currentDateOfMonth,
+      daysInMonth,
+      datePercentage,
+      budgetPercentage
+    });
+    
+    const result = {
+      totalExpenses,
+      budget,
+      currentDate: currentDateOfMonth,
+      daysInMonth,
+      budgetPercentage: Math.min(budgetPercentage, 100), // Cap at 100%
+      datePercentage,
+      currency: 'INR'
+    };
+    
+    console.log('💰 [BUDGET] Final result:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ [BUDGET] Error fetching budget data:', error);
+    console.error('❌ [BUDGET] Error message:', error.message);
+    console.error('❌ [BUDGET] Error stack:', error.stack);
+    throw error;
+  }
+}
+
 module.exports = {
   pool,
   getUserByTelegramId,
   testConnection,
   getExpenseEntryDatesForMonth,
-  getUserMissionProgress
+  getUserMissionProgress,
+  getCurrentMonthBudgetData
 }; 

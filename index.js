@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -283,6 +283,46 @@ app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, 
   } catch (error) {
     console.error('❌ [MISSIONS] Error in /api/user/:telegramId/missions:', error);
     console.error('❌ [MISSIONS] Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// New endpoint: Get budget and expense data for current month
+app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, async (req, res) => {
+  try {
+    console.log('💰 [BUDGET] Starting budget data request');
+    console.log('💰 [BUDGET] Request params:', req.params);
+    console.log('💰 [BUDGET] Validated user from init data:', req.validatedInitData.user);
+    
+    const telegramId = parseInt(req.params.telegramId);
+    
+    console.log('💰 [BUDGET] Parsed telegram ID:', telegramId);
+    
+    if (isNaN(telegramId)) {
+      console.log('❌ [BUDGET] Invalid telegram ID detected');
+      return res.status(400).json({ error: 'Invalid telegram ID' });
+    }
+    
+    // Only allow access if the validated user matches the requested user
+    if (req.validatedInitData.user.id !== telegramId) {
+      console.log('❌ [BUDGET] User mismatch detected');
+      console.log('💰 [BUDGET] Requested user ID:', telegramId);
+      console.log('💰 [BUDGET] Validated user ID:', req.validatedInitData.user.id);
+      return res.status(403).json({ error: 'Forbidden: user mismatch' });
+    }
+    
+    console.log('💰 [BUDGET] User validation passed, fetching budget data...');
+    console.log('💰 [BUDGET] Calling getCurrentMonthBudgetData with:', { telegramId });
+    
+    const budgetData = await getCurrentMonthBudgetData(telegramId);
+    
+    console.log('💰 [BUDGET] Database query completed');
+    console.log('💰 [BUDGET] Budget data:', budgetData);
+    
+    res.json(budgetData);
+  } catch (error) {
+    console.error('❌ [BUDGET] Error in /api/user/:telegramId/budget/current-month:', error);
+    console.error('❌ [BUDGET] Error stack:', error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
