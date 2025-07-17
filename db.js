@@ -267,6 +267,8 @@ async function getCurrentMonthBudgetData(telegramUserId) {
        AND created_at < $3`,
       [userId, startOfMonth, endOfMonth]
     );
+
+    console.log('💰 [BUDGET] Expenses filtered result (raw):', expensesResult.rows);
     
     const totalExpenses = parseFloat(expensesResult.rows[0]?.total_amount || 0);
     console.log('💰 [BUDGET] Total expenses for current month:', totalExpenses);
