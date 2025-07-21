@@ -19,6 +19,10 @@ if (!BOT_TOKEN) {
 // Middleware
 app.use(cors()); // Allow cross-origin requests from your mini app
 app.use(express.json()); // Parse JSON request bodies
+app.use((req, res, next) => {
+  console.log('[DEBUG] Incoming request:', req.method, req.url, 'Headers:', req.headers);
+  next();
+});
 
 // List of test user IDs for dev bypass
 const DEV_USER_IDS = new Set(
@@ -29,6 +33,7 @@ console.log('[DEV] BACKEND DEV_USER_IDS:', Array.from(DEV_USER_IDS));
 // Telegram init data validation middleware
 const validateTelegramInitData = (req, res, next) => {
   try {
+    console.log('[AUTH DEBUG] Starting validation for', req.url, 'Headers:', req.headers);
     console.log('🔐 [AUTH] Starting init data validation');
     console.log('🔐 [AUTH] Request headers:', Object.keys(req.headers));
     console.log('🔐 [AUTH] Request method:', req.method);
@@ -99,8 +104,10 @@ const validateTelegramInitData = (req, res, next) => {
 
     // Store the validated init data in the request for later use
     req.validatedInitData = initData;
+    console.log('[AUTH DEBUG] Validation passed for', req.url, 'User:', req.validatedInitData?.user);
     next();
   } catch (error) {
+    console.error('[AUTH DEBUG] Validation failed for', req.url, 'Error:', error);
     console.error('❌ [AUTH] Init data validation failed:', error.message);
     console.error('❌ [AUTH] Error stack:', error.stack);
     return res.status(401).json({ error: 'Invalid init data' });
@@ -141,6 +148,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
     }
     
     const user = await getUserByTelegramId(telegramId);
+    console.log('[DEBUG] DB user lookup result:', user);
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -170,6 +178,7 @@ app.post('/api/user/validate', validateTelegramInitData, async (req, res) => {
     
     // Get user from database
     const user = await getUserByTelegramId(telegramUserId);
+    console.log('[DEBUG] DB user lookup result:', user);
     
     if (!user) {
       console.log('❌ User not found in database for Telegram ID:', telegramUserId);
