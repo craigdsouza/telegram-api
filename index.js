@@ -288,6 +288,21 @@ app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, 
 });
 
 // New endpoint: Get budget and expense data for current month
+/**
+ * GET /api/user/:telegramId/budget/current-month
+ * Returns:
+ *   {
+ *     totalExpenses: number,
+ *     budget: number | null,
+ *     currentDate: number,
+ *     daysInMonth: number,
+ *     budgetPercentage: number,
+ *     datePercentage: number,
+ *     currency: string,
+ *     isFamily: boolean,        // true if user is in a family group
+ *     familyMembers: number     // number of family members (including self)
+ *   }
+ */
 app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, async (req, res) => {
   try {
     console.log('💰 [BUDGET] Starting budget data request');

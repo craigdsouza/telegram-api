@@ -200,6 +200,24 @@ async function getUserMissionProgress(telegramUserId) {
   }
 }
 
+// Helper to get family member IDs for a user (returns array of user IDs, including self)
+async function getFamilyMemberIds(userId) {
+  const result = await pool.query('SELECT family FROM users WHERE id = $1', [userId]);
+  if (!result.rows.length || !result.rows[0].family) {
+    return [userId];
+  }
+  try {
+    const familyIds = JSON.parse(result.rows[0].family);
+    if (Array.isArray(familyIds) && familyIds.length > 0) {
+      return familyIds;
+    }
+    return [userId];
+  } catch (e) {
+    console.error('❌ [BUDGET] Error parsing family JSON:', e);
+    return [userId];
+  }
+}
+
 // Get budget and expense data for current month
 async function getCurrentMonthBudgetData(telegramUserId, year, month) {
   try {
@@ -224,36 +242,52 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
         daysInMonth: new Date(year, month, 0).getDate(),
         budgetPercentage: 0,
         datePercentage: 0,
-        currency: 'INR'
+        currency: 'INR',
+        isFamily: false,
+        familyMembers: 1
       };
     }
     
     const userId = userResult.rows[0].id;
-    const budget = userResult.rows[0].budget;
-    console.log('💰 [BUDGET] Found internal user ID:', userId);
-    console.log('💰 [BUDGET] User budget:', budget);
+    // Get family member IDs
+    const familyMemberIds = await getFamilyMemberIds(userId);
+    const isFamily = familyMemberIds.length > 1;
+    const familyMembers = familyMemberIds.length;
     
     // Use the provided year and month instead of current date
     // month is 1-indexed (1-12), so we need to convert to 0-indexed for Date constructor
     const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0); // First day of month at 00:00:00
     const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0); // First day of next month at 00:00:00
     
-    console.log('💰 [BUDGET] Date range for query:', { startOfMonth, endOfMonth });
+    let budget = null;
+    let totalExpenses = 0;
     
-    console.log('💰 [BUDGET] Executing expenses query...');
-    const expenses = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as total_amount
-       FROM expenses
-       WHERE user_id = $1 AND date >= $2 AND date < $3`,
-      [userId, startOfMonth, endOfMonth]
-    );
-    
-    console.log('💰 [BUDGET] Expenses query completed');
-    console.log('💰 [BUDGET] Number of expense rows found:', expenses.rows.length);
-    console.log('💰 [BUDGET] Raw expense rows:', expenses.rows); // RETURNS 
-    
-    const totalExpenses = expenses.rows[0].total_amount
-    console.log('💰 [BUDGET] Total expenses for current month:', totalExpenses);
+    if (isFamily) {
+      // Get first non-null budget from any family member
+      const budgetResult = await pool.query(
+        'SELECT budget FROM users WHERE id = ANY($1) AND budget IS NOT NULL AND budget > 0 ORDER BY id LIMIT 1',
+        [familyMemberIds]
+      );
+      budget = budgetResult.rows.length ? budgetResult.rows[0].budget : null;
+      // Get combined expenses for all family members
+      const expensesResult = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) as total_amount
+         FROM expenses
+         WHERE user_id = ANY($1) AND date >= $2 AND date < $3`,
+        [familyMemberIds, startOfMonth, endOfMonth]
+      );
+      totalExpenses = expensesResult.rows[0].total_amount;
+    } else {
+      budget = userResult.rows[0].budget;
+      // Individual expenses
+      const expenses = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) as total_amount
+         FROM expenses
+         WHERE user_id = $1 AND date >= $2 AND date < $3`,
+        [userId, startOfMonth, endOfMonth]
+      );
+      totalExpenses = expenses.rows[0].total_amount;
+    }
     
     // Calculate percentages
     const currentDateOfMonth = new Date().getDate(); // Current day of month
@@ -275,7 +309,9 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
       daysInMonth,
       budgetPercentage: Math.min(budgetPercentage, 100), // Cap at 100%
       datePercentage,
-      currency: 'INR'
+      currency: 'INR',
+      isFamily,
+      familyMembers
     };
     
     console.log('💰 [BUDGET] Final result:', result);
