@@ -341,10 +341,10 @@ async function getCurrentMonthExpenses(telegramUserId, year, month) {
     const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
     // Query for all expenses for this user in the given month
     const result = await pool.query(
-      `SELECT id, created_at::date as date, amount, category, description
+      `SELECT id, date, amount, category, description
        FROM expenses
-       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
-       ORDER BY created_at ASC`,
+       WHERE user_id = $1 AND date >= $2 AND date < $3
+       ORDER BY date ASC`,
       [userId, startOfMonth, endOfMonth]
     );
     return result.rows;
