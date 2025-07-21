@@ -102,9 +102,9 @@ async function getExpenseEntryDatesForMonth(telegramUserId, year, month) {
     
     console.log('🗄️ [DB] Executing expenses query...');
     const result = await pool.query(
-      `SELECT DISTINCT EXTRACT(DAY FROM created_at) AS day
+      `SELECT DISTINCT EXTRACT(DAY FROM date) AS day
        FROM expenses
-       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
+       WHERE user_id = $1 AND date >= $2 AND date < $3
        ORDER BY day`,
       [userId, start, end]
     );
