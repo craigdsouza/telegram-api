@@ -325,11 +325,41 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
   }
 }
 
+// Get all expenses for the current month for a user (date, amount, category, description)
+async function getCurrentMonthExpenses(telegramUserId, year, month) {
+  try {
+    // Get the internal user id from telegram_user_id
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE telegram_user_id = $1',
+      [telegramUserId]
+    );
+    if (userResult.rows.length === 0) {
+      return [];
+    }
+    const userId = userResult.rows[0].id;
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+    // Query for all expenses for this user in the given month
+    const result = await pool.query(
+      `SELECT id, created_at::date as date, amount, category, description
+       FROM expenses
+       WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
+       ORDER BY created_at ASC`,
+      [userId, startOfMonth, endOfMonth]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('❌ [DB] Error fetching current month expenses:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   pool,
   getUserByTelegramId,
   testConnection,
   getExpenseEntryDatesForMonth,
   getUserMissionProgress,
-  getCurrentMonthBudgetData
+  getCurrentMonthBudgetData,
+  getCurrentMonthExpenses
 }; 

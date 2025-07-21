@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -104,6 +104,12 @@ const validateTelegramInitData = (req, res, next) => {
 
     // Store the validated init data in the request for later use
     req.validatedInitData = initData;
+    // Add userLogString for consistent logging
+    if (initData && initData.user) {
+      req.userLogString = `User ${initData.user.id} (${initData.user.first_name || ''} ${initData.user.last_name || ''})`;
+    } else {
+      req.userLogString = 'User unknown';
+    }
     console.log('[AUTH DEBUG] Validation passed for', req.url, 'User:', req.validatedInitData?.user);
     next();
   } catch (error) {
@@ -204,6 +210,7 @@ app.post('/api/user/validate', validateTelegramInitData, async (req, res) => {
 // New endpoint: Get entry dates for current month for a user
 app.get('/api/user/:telegramId/expenses/dates', validateTelegramInitData, async (req, res) => {
   try {
+    console.log('📅 [CALENDAR] DEBUG:', req.userLogString, 'Telegram ID:', req.params.telegramId);
     console.log('📅 [CALENDAR] Starting calendar data request');
     console.log('📅 [CALENDAR] Request params:', req.params);
     console.log('📅 [CALENDAR] Request query:', req.query);
@@ -251,7 +258,7 @@ app.get('/api/user/:telegramId/expenses/dates', validateTelegramInitData, async 
 // New endpoint: Get mission progress for a user
 app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, res) => {
   try {
-    console.log('🎯 [MISSIONS] DEBUG: Telegram ID:', req.params.telegramId);
+    console.log('🎯 [MISSIONS] DEBUG:', req.userLogString, 'Telegram ID:', req.params.telegramId);
     console.log('🎯 [MISSIONS] DEBUG: Init data:', req.validatedInitData);
     const telegramId = parseInt(req.params.telegramId);
     
@@ -312,7 +319,7 @@ app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, 
  */
 app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, async (req, res) => {
   try {
-    console.log('💰 [BUDGET] DEBUG: Telegram ID:', req.params);
+    console.log('💰 [BUDGET] DEBUG:', req.userLogString, 'Telegram ID:', req.params.telegramId);
     console.log('💰 [BUDGET] DEBUG: Init data:', req.validatedInitData);
     const telegramId = parseInt(req.params.telegramId);
     const year = parseInt(req.query.year);
@@ -350,6 +357,27 @@ app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, 
   } catch (error) {
     console.error('❌ [BUDGET] DEBUG: Error for Telegram ID', req.params.telegramId, error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// New endpoint: Get all expenses for the current month for a user
+app.get('/api/user/:telegramId/expenses/current-month', validateTelegramInitData, async (req, res) => {
+  try {
+    const telegramId = parseInt(req.params.telegramId);
+    const year = parseInt(req.query.year);
+    const month = parseInt(req.query.month);
+    if (isNaN(telegramId) || isNaN(year) || isNaN(month)) {
+      return res.status(400).json({ error: 'Invalid parameters' });
+    }
+    // Only allow access if the validated user matches the requested user
+    if (req.validatedInitData.user.id !== telegramId) {
+      return res.status(403).json({ error: 'Forbidden: user mismatch' });
+    }
+    const expenses = await getCurrentMonthExpenses(telegramId, year, month);
+    res.json({ expenses });
+  } catch (error) {
+    console.error('❌ [EXPENSES] Error in /api/user/:telegramId/expenses/current-month:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
