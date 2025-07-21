@@ -242,10 +242,8 @@ app.get('/api/user/:telegramId/expenses/dates', validateTelegramInitData, async 
 // New endpoint: Get mission progress for a user
 app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, res) => {
   try {
-    console.log('🎯 [MISSIONS] Starting mission progress request');
-    console.log('🎯 [MISSIONS] Request params:', req.params);
-    console.log('🎯 [MISSIONS] Validated user from init data:', req.validatedInitData.user);
-    
+    console.log('🎯 [MISSIONS] DEBUG: Telegram ID:', req.params.telegramId);
+    console.log('🎯 [MISSIONS] DEBUG: Init data:', req.validatedInitData);
     const telegramId = parseInt(req.params.telegramId);
     
     console.log('🎯 [MISSIONS] Parsed telegram ID:', telegramId);
@@ -305,11 +303,8 @@ app.get('/api/user/:telegramId/missions', validateTelegramInitData, async (req, 
  */
 app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, async (req, res) => {
   try {
-    console.log('💰 [BUDGET] Starting budget data request');
-    console.log('💰 [BUDGET] Request params:', req.params);
-    console.log('💰 [BUDGET] Request query:', req.query);
-    console.log('💰 [BUDGET] Validated user from init data:', req.validatedInitData.user);
-    
+    console.log('💰 [BUDGET] DEBUG: Telegram ID:', req.params);
+    console.log('💰 [BUDGET] DEBUG: Init data:', req.validatedInitData);
     const telegramId = parseInt(req.params.telegramId);
     const year = parseInt(req.query.year);
     const month = parseInt(req.query.month);
@@ -344,9 +339,8 @@ app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, 
     
     res.json(budgetData);
   } catch (error) {
-    console.error('❌ [BUDGET] Error in /api/user/:telegramId/budget/current-month:', error);
-    console.error('❌ [BUDGET] Error stack:', error.stack);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ [BUDGET] DEBUG: Error for Telegram ID', req.params.telegramId, error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
