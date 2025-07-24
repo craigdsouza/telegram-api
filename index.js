@@ -430,9 +430,9 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
       return res.status(400).json({ error: 'Invalid telegram ID' });
     }
     
-    if (typeof action !== 'string' || (action !== 'complete' && action !== 'skip' && action !== 'reset')) {
+    if (typeof action !== 'string' || (action !== 'complete' && action !== 'skip' && action !== 'reset' && action !== 'update')) {
       console.log('❌ [ONBOARDING] Invalid action:', action);
-      return res.status(400).json({ error: 'Invalid action. Must be "complete", "skip", or "reset".' });
+      return res.status(400).json({ error: 'Invalid action. Must be "complete", "skip", "reset", or "update".' });
     }
     
     // Only allow access if the validated user matches the requested user
@@ -462,6 +462,12 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
       if (!progress) {
         console.log('❌ [ONBOARDING] Missing progress data for reset action');
         return res.status(400).json({ error: 'Missing progress data for reset action.' });
+      }
+      result = await updateUserOnboardingProgress(telegramId, progress);
+    } else if (action === 'update') {
+      if (!progress) {
+        console.log('❌ [ONBOARDING] Missing progress data for update action');
+        return res.status(400).json({ error: 'Missing progress data for update action.' });
       }
       result = await updateUserOnboardingProgress(telegramId, progress);
     }
