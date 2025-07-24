@@ -423,21 +423,16 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
     console.log('🎯 [ONBOARDING] Request body:', req.body);
     
     const telegramId = parseInt(req.params.telegramId);
-    const { action, step } = req.body; // action: 'complete' or 'skip', step: number
+    const { action, step, progress } = req.body; // action: 'complete', 'skip', or 'reset'
     
     if (isNaN(telegramId)) {
       console.log('❌ [ONBOARDING] Invalid telegram ID detected');
       return res.status(400).json({ error: 'Invalid telegram ID' });
     }
     
-    if (typeof action !== 'string' || (action !== 'complete' && action !== 'skip')) {
+    if (typeof action !== 'string' || (action !== 'complete' && action !== 'skip' && action !== 'reset')) {
       console.log('❌ [ONBOARDING] Invalid action:', action);
-      return res.status(400).json({ error: 'Invalid action. Must be "complete" or "skip".' });
-    }
-    
-    if (typeof step !== 'number' || step < 0) {
-      console.log('❌ [ONBOARDING] Invalid step:', step);
-      return res.status(400).json({ error: 'Invalid step. Must be a non-negative number.' });
+      return res.status(400).json({ error: 'Invalid action. Must be "complete", "skip", or "reset".' });
     }
     
     // Only allow access if the validated user matches the requested user
@@ -450,10 +445,25 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
     
     console.log('🎯 [ONBOARDING] User validation passed, updating onboarding status...');
     let result;
+    
     if (action === 'complete') {
+      if (typeof step !== 'number' || step < 0) {
+        console.log('❌ [ONBOARDING] Invalid step for complete action:', step);
+        return res.status(400).json({ error: 'Invalid step. Must be a non-negative number.' });
+      }
       result = await completeOnboardingStep(telegramId, step);
     } else if (action === 'skip') {
+      if (typeof step !== 'number' || step < 0) {
+        console.log('❌ [ONBOARDING] Invalid step for skip action:', step);
+        return res.status(400).json({ error: 'Invalid step. Must be a non-negative number.' });
+      }
       result = await skipOnboardingStep(telegramId, step);
+    } else if (action === 'reset') {
+      if (!progress) {
+        console.log('❌ [ONBOARDING] Missing progress data for reset action');
+        return res.status(400).json({ error: 'Missing progress data for reset action.' });
+      }
+      result = await updateUserOnboardingProgress(telegramId, progress);
     }
     
     if (!result) {
@@ -467,7 +477,7 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
       user: {
         id: result.id,
         telegram_user_id: result.telegram_user_id,
-        onboarding: result.onboarding
+        onboarding_progress: result.onboarding_progress
       }
     });
   } catch (error) {
