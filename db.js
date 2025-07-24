@@ -101,6 +101,8 @@ async function getExpenseEntryDatesForMonth(telegramUserId, year, month) {
     });
     
     console.log('🗄️ [DB] Executing expenses query...');
+    console.log('🗄️ [DB] SQL:', `SELECT DISTINCT EXTRACT(DAY FROM date) AS day FROM expenses WHERE user_id = $1 AND date >= $2 AND date < $3 ORDER BY day`);
+    console.log('🗄️ [DB] Params:', [userId, start, end]);
     const result = await pool.query(
       `SELECT DISTINCT EXTRACT(DAY FROM date) AS day
        FROM expenses
@@ -108,6 +110,7 @@ async function getExpenseEntryDatesForMonth(telegramUserId, year, month) {
        ORDER BY day`,
       [userId, start, end]
     );
+    console.log('🗄️ [DB] Raw SQL result rows:', result.rows);
     
     console.log('🗄️ [DB] Expenses query completed');
     console.log('🗄️ [DB] Number of expense rows found:', result.rows.length);
@@ -354,12 +357,58 @@ async function getCurrentMonthExpenses(telegramUserId, year, month) {
   }
 }
 
+// Get user onboarding status
+async function getUserOnboardingStatus(telegramUserId) {
+  try {
+    const query = `
+      SELECT onboarding 
+      FROM users 
+      WHERE telegram_user_id = $1
+    `;
+    
+    const result = await pool.query(query, [telegramUserId]);
+    
+    if (result.rows.length === 0) {
+      return null; // User not found
+    }
+    
+    return result.rows[0].onboarding;
+  } catch (error) {
+    console.error('❌ Error fetching user onboarding status:', error);
+    throw error;
+  }
+}
+
+// Update user onboarding status
+async function updateUserOnboardingStatus(telegramUserId, onboardingStatus) {
+  try {
+    const query = `
+      UPDATE users 
+      SET onboarding = $2, last_active = NOW()
+      WHERE telegram_user_id = $1
+      RETURNING id, telegram_user_id, onboarding
+    `;
+    
+    const result = await pool.query(query, [telegramUserId, onboardingStatus]);
+    
+    if (result.rows.length === 0) {
+      return null; // User not found
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Error updating user onboarding status:', error);
+    throw error;
+  }
+}
+
 module.exports = {
-  pool,
-  getUserByTelegramId,
   testConnection,
+  getUserByTelegramId,
   getExpenseEntryDatesForMonth,
   getUserMissionProgress,
   getCurrentMonthBudgetData,
-  getCurrentMonthExpenses
+  getCurrentMonthExpenses,
+  getUserOnboardingStatus,
+  updateUserOnboardingStatus
 }; 
