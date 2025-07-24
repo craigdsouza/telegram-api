@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingStatus, updateUserOnboardingStatus } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -401,15 +401,15 @@ app.get('/api/user/:telegramId/onboarding', validateTelegramInitData, async (req
     }
     
     console.log('🎯 [ONBOARDING] User validation passed, fetching onboarding status...');
-    const onboardingStatus = await getUserOnboardingStatus(telegramId);
+    const onboardingProgress = await getUserOnboardingProgress(telegramId);
     
-    if (onboardingStatus === null) {
+    if (onboardingProgress === null) {
       console.log('❌ [ONBOARDING] User not found in database');
       return res.status(404).json({ error: 'User not found' });
     }
     
-    console.log('🎯 [ONBOARDING] Onboarding status:', onboardingStatus);
-    res.json({ onboarding: onboardingStatus });
+    console.log('🎯 [ONBOARDING] Onboarding progress:', onboardingProgress);
+    res.json({ onboarding: onboardingProgress });
   } catch (error) {
     console.error('❌ [ONBOARDING] Error in /api/user/:telegramId/onboarding:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -423,16 +423,21 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
     console.log('🎯 [ONBOARDING] Request body:', req.body);
     
     const telegramId = parseInt(req.params.telegramId);
-    const { onboarding } = req.body;
+    const { action, step } = req.body; // action: 'complete' or 'skip', step: number
     
     if (isNaN(telegramId)) {
       console.log('❌ [ONBOARDING] Invalid telegram ID detected');
       return res.status(400).json({ error: 'Invalid telegram ID' });
     }
     
-    if (typeof onboarding !== 'number' || (onboarding !== 0 && onboarding !== 1)) {
-      console.log('❌ [ONBOARDING] Invalid onboarding status:', onboarding);
-      return res.status(400).json({ error: 'Invalid onboarding status. Must be 0 or 1.' });
+    if (typeof action !== 'string' || (action !== 'complete' && action !== 'skip')) {
+      console.log('❌ [ONBOARDING] Invalid action:', action);
+      return res.status(400).json({ error: 'Invalid action. Must be "complete" or "skip".' });
+    }
+    
+    if (typeof step !== 'number' || step < 0) {
+      console.log('❌ [ONBOARDING] Invalid step:', step);
+      return res.status(400).json({ error: 'Invalid step. Must be a non-negative number.' });
     }
     
     // Only allow access if the validated user matches the requested user
@@ -444,11 +449,16 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
     }
     
     console.log('🎯 [ONBOARDING] User validation passed, updating onboarding status...');
-    const result = await updateUserOnboardingStatus(telegramId, onboarding);
+    let result;
+    if (action === 'complete') {
+      result = await completeOnboardingStep(telegramId, step);
+    } else if (action === 'skip') {
+      result = await skipOnboardingStep(telegramId, step);
+    }
     
     if (!result) {
-      console.log('❌ [ONBOARDING] User not found in database');
-      return res.status(404).json({ error: 'User not found' });
+      console.log('❌ [ONBOARDING] User not found in database or step not found');
+      return res.status(404).json({ error: 'User not found or step not found' });
     }
     
     console.log('🎯 [ONBOARDING] Onboarding status updated successfully:', result);

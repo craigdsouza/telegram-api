@@ -402,6 +402,113 @@ async function updateUserOnboardingStatus(telegramUserId, onboardingStatus) {
   }
 }
 
+// Get user onboarding progress
+async function getUserOnboardingProgress(telegramUserId) {
+  try {
+    const query = `
+      SELECT onboarding_progress 
+      FROM users 
+      WHERE telegram_user_id = $1
+    `;
+    
+    const result = await pool.query(query, [telegramUserId]);
+    
+    if (result.rows.length === 0) {
+      return null; // User not found
+    }
+    
+    return result.rows[0].onboarding_progress;
+  } catch (error) {
+    console.error('❌ Error fetching user onboarding progress:', error);
+    throw error;
+  }
+}
+
+// Update user onboarding progress
+async function updateUserOnboardingProgress(telegramUserId, progress) {
+  try {
+    const query = `
+      UPDATE users 
+      SET onboarding_progress = $2, last_active = NOW()
+      WHERE telegram_user_id = $1
+      RETURNING id, telegram_user_id, onboarding_progress
+    `;
+    
+    const result = await pool.query(query, [telegramUserId, JSON.stringify(progress)]);
+    
+    if (result.rows.length === 0) {
+      return null; // User not found
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Error updating user onboarding progress:', error);
+    throw error;
+  }
+}
+
+// Complete a specific onboarding step
+async function completeOnboardingStep(telegramUserId, stepId, stepData = {}) {
+  try {
+    // First get current progress
+    const currentProgress = await getUserOnboardingProgress(telegramUserId);
+    if (!currentProgress) {
+      throw new Error('User not found');
+    }
+    
+    // Update progress
+    const updatedProgress = {
+      ...currentProgress,
+      current_step: Math.max(currentProgress.current_step, stepId + 1),
+      completed_steps: [...new Set([...currentProgress.completed_steps, stepId])],
+      step_data: {
+        ...currentProgress.step_data,
+        [`step_${stepId}`]: {
+          ...stepData,
+          completed_at: new Date().toISOString()
+        }
+      }
+    };
+    
+    // Update in database
+    return await updateUserOnboardingProgress(telegramUserId, updatedProgress);
+  } catch (error) {
+    console.error('❌ Error completing onboarding step:', error);
+    throw error;
+  }
+}
+
+// Skip a specific onboarding step
+async function skipOnboardingStep(telegramUserId, stepId) {
+  try {
+    // First get current progress
+    const currentProgress = await getUserOnboardingProgress(telegramUserId);
+    if (!currentProgress) {
+      throw new Error('User not found');
+    }
+    
+    // Update progress (mark as completed but with skip flag)
+    const updatedProgress = {
+      ...currentProgress,
+      current_step: Math.max(currentProgress.current_step, stepId + 1),
+      completed_steps: [...new Set([...currentProgress.completed_steps, stepId])],
+      step_data: {
+        ...currentProgress.step_data,
+        [`step_${stepId}`]: {
+          skipped: true,
+          skipped_at: new Date().toISOString()
+        }
+      }
+    };
+    
+    // Update in database
+    return await updateUserOnboardingProgress(telegramUserId, updatedProgress);
+  } catch (error) {
+    console.error('❌ Error skipping onboarding step:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   testConnection,
   getUserByTelegramId,
@@ -409,6 +516,8 @@ module.exports = {
   getUserMissionProgress,
   getCurrentMonthBudgetData,
   getCurrentMonthExpenses,
-  getUserOnboardingStatus,
-  updateUserOnboardingStatus
+  getUserOnboardingProgress,
+  updateUserOnboardingProgress,
+  completeOnboardingStep,
+  skipOnboardingStep
 }; 
