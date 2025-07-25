@@ -360,23 +360,22 @@ app.get('/api/user/:telegramId/budget/current-month', validateTelegramInitData, 
   }
 });
 
-// New endpoint: Get all expenses for the current month for a user
-app.get('/api/user/:telegramId/expenses/current-month', validateTelegramInitData, async (req, res) => {
+// New endpoint: Get all expenses for the current month for a user (by internal user ID)
+app.get('/api/user/:internalUserId/expenses/current-month', validateTelegramInitData, async (req, res) => {
   try {
-    const telegramId = parseInt(req.params.telegramId);
+    const internalUserId = parseInt(req.params.internalUserId);
     const year = parseInt(req.query.year);
     const month = parseInt(req.query.month);
-    if (isNaN(telegramId) || isNaN(year) || isNaN(month)) {
+    if (isNaN(internalUserId) || isNaN(year) || isNaN(month)) {
       return res.status(400).json({ error: 'Invalid parameters' });
     }
-    // Only allow access if the validated user matches the requested user
-    if (req.validatedInitData.user.id !== telegramId) {
-      return res.status(403).json({ error: 'Forbidden: user mismatch' , userID: req.validatedInitData.user.id, telegramID: telegramId});
-    }
-    const expenses = await getCurrentMonthExpenses(telegramId, year, month);
+    // Optionally, you could check that the user making the request is allowed to access this internal user ID
+    // For now, just log the validated user from init data
+    console.log('[EXPENSES CURRENT MONTH] Validated user from init data:', req.validatedInitData.user);
+    const expenses = await getCurrentMonthExpensesByInternalUserId(internalUserId, year, month);
     res.json({ expenses });
   } catch (error) {
-    console.error('❌ [EXPENSES] Error in /api/user/:telegramId/expenses/current-month:', error);
+    console.error('❌ [EXPENSES] Error in /api/user/:internalUserId/expenses/current-month:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

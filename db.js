@@ -357,6 +357,25 @@ async function getCurrentMonthExpenses(telegramUserId, year, month) {
   }
 }
 
+// Get all expenses for the current month for a user by internal user ID
+async function getCurrentMonthExpensesByInternalUserId(userId, year, month) {
+  try {
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+    const result = await pool.query(
+      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description
+       FROM expenses
+       WHERE user_id = $1 AND date >= $2 AND date < $3
+       ORDER BY date ASC`,
+      [userId, startOfMonth, endOfMonth]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('❌ [DB] Error fetching current month expenses by internal user ID:', error);
+    throw error;
+  }
+}
+
 // Get user onboarding status
 async function getUserOnboardingStatus(telegramUserId) {
   try {
@@ -573,6 +592,7 @@ module.exports = {
   getUserMissionProgress,
   getCurrentMonthBudgetData,
   getCurrentMonthExpenses,
+  getCurrentMonthExpensesByInternalUserId,
   getUserOnboardingProgress,
   updateUserOnboardingProgress,
   completeOnboardingStep,
