@@ -371,7 +371,7 @@ app.get('/api/user/:telegramId/expenses/current-month', validateTelegramInitData
     }
     // Only allow access if the validated user matches the requested user
     if (req.validatedInitData.user.id !== telegramId) {
-      return res.status(403).json({ error: 'Forbidden: user mismatch' });
+      return res.status(403).json({ error: 'Forbidden: user mismatch' , userID: req.validatedInitData.user.id, telegramID: telegramId});
     }
     const expenses = await getCurrentMonthExpenses(telegramId, year, month);
     res.json({ expenses });
