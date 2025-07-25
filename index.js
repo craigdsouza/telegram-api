@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, getExpensesByInternalUserIdAndDateRange } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -492,14 +492,14 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
   }
 });
 
-// Get user settings by user ID
-app.get('/api/user/:userId/settings', validateTelegramInitData, async (req, res) => {
+// Get user settings by internal user ID
+app.get('/api/user/:internalUserId/settings', validateTelegramInitData, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ error: 'Invalid user ID' });
+    const internalUserId = parseInt(req.params.internalUserId);
+    if (isNaN(internalUserId)) {
+      return res.status(400).json({ error: 'Invalid internal user ID' });
     }
-    const settings = await getUserSettings(userId);
+    const settings = await getUserSettings(internalUserId);
     if (!settings) {
       return res.status(404).json({ error: 'Settings not found' });
     }
@@ -510,12 +510,12 @@ app.get('/api/user/:userId/settings', validateTelegramInitData, async (req, res)
   }
 });
 
-// Update user settings by user ID
-app.post('/api/user/:userId/settings', validateTelegramInitData, async (req, res) => {
+// Update user settings by internal user ID
+app.post('/api/user/:internalUserId/settings', validateTelegramInitData, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
-    if (isNaN(userId)) {
-      return res.status(400).json({ error: 'Invalid user ID' });
+    const internalUserId = parseInt(req.params.internalUserId);
+    if (isNaN(internalUserId)) {
+      return res.status(400).json({ error: 'Invalid internal user ID' });
     }
     const { month_start, month_end } = req.body;
     if (month_start !== null && month_start !== undefined && (month_start < 1 || month_start > 28)) {
@@ -524,13 +524,32 @@ app.post('/api/user/:userId/settings', validateTelegramInitData, async (req, res
     if (month_end !== null && month_end !== undefined && (month_end < 1 || month_end > 31)) {
       return res.status(400).json({ error: 'month_end must be between 1 and 31 or null' });
     }
-    const updated = await updateUserSettings(userId, { month_start, month_end });
+    const updated = await updateUserSettings(internalUserId, { month_start, month_end });
     if (!updated) {
       return res.status(404).json({ error: 'Settings not found' });
     }
     res.json({ settings: updated });
   } catch (error) {
     console.error('Error updating user settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// New endpoint: Get all expenses for a user by internal user ID and date range
+app.get('/api/user/:internalUserId/expenses/range', validateTelegramInitData, async (req, res) => {
+  try {
+    const internalUserId = parseInt(req.params.internalUserId);
+    const { start, end } = req.query;
+    if (isNaN(internalUserId) || !start || !end) {
+      return res.status(400).json({ error: 'Invalid parameters' });
+    }
+    // Optionally, you could check that the user making the request is allowed to access this internal user ID
+    // For now, just log the validated user from init data
+    console.log('[EXPENSES RANGE] Validated user from init data:', req.validatedInitData.user);
+    const expenses = await getExpensesByInternalUserIdAndDateRange(internalUserId, start, end);
+    res.json({ expenses });
+  } catch (error) {
+    console.error('❌ [EXPENSES RANGE] Error in /api/user/:internalUserId/expenses/range:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

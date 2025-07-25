@@ -549,6 +549,23 @@ async function updateUserSettings(userId, settings) {
   }
 }
 
+// Get all expenses for a user by internal user ID and date range
+async function getExpensesByInternalUserIdAndDateRange(userId, startDate, endDate) {
+  try {
+    const result = await pool.query(
+      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description
+       FROM expenses
+       WHERE user_id = $1 AND date >= $2 AND date <= $3
+       ORDER BY date ASC`,
+      [userId, startDate, endDate]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('❌ [DB] Error fetching expenses by internal user ID and date range:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   testConnection,
   getUserByTelegramId,
@@ -561,5 +578,6 @@ module.exports = {
   completeOnboardingStep,
   skipOnboardingStep,
   getUserSettings,
-  updateUserSettings
+  updateUserSettings,
+  getExpensesByInternalUserIdAndDateRange
 }; 
