@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -488,6 +488,49 @@ app.post('/api/user/:telegramId/onboarding', validateTelegramInitData, async (re
     });
   } catch (error) {
     console.error('❌ [ONBOARDING] Error in /api/user/:telegramId/onboarding (POST):', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user settings by user ID
+app.get('/api/user/:userId/settings', validateTelegramInitData, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const settings = await getUserSettings(userId);
+    if (!settings) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+    res.json({ settings });
+  } catch (error) {
+    console.error('Error fetching user settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user settings by user ID
+app.post('/api/user/:userId/settings', validateTelegramInitData, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const { month_start, month_end } = req.body;
+    if (month_start !== null && month_start !== undefined && (month_start < 1 || month_start > 28)) {
+      return res.status(400).json({ error: 'month_start must be between 1 and 28 or null' });
+    }
+    if (month_end !== null && month_end !== undefined && (month_end < 1 || month_end > 31)) {
+      return res.status(400).json({ error: 'month_end must be between 1 and 31 or null' });
+    }
+    const updated = await updateUserSettings(userId, { month_start, month_end });
+    if (!updated) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+    res.json({ settings: updated });
+  } catch (error) {
+    console.error('Error updating user settings:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

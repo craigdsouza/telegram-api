@@ -509,6 +509,46 @@ async function skipOnboardingStep(telegramUserId, stepId) {
   }
 }
 
+// Get user settings by user_id
+async function getUserSettings(userId) {
+  try {
+    const query = `
+      SELECT user_id, first_name, last_name, month_start, month_end
+      FROM user_settings
+      WHERE user_id = $1
+    `;
+    const result = await pool.query(query, [userId]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Error fetching user settings:', error);
+    throw error;
+  }
+}
+
+// Update user settings by user_id
+async function updateUserSettings(userId, settings) {
+  try {
+    const { month_start, month_end } = settings;
+    const query = `
+      UPDATE user_settings
+      SET month_start = $2, month_end = $3
+      WHERE user_id = $1
+      RETURNING user_id, first_name, last_name, month_start, month_end
+    `;
+    const result = await pool.query(query, [userId, month_start, month_end]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Error updating user settings:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   testConnection,
   getUserByTelegramId,
@@ -519,5 +559,7 @@ module.exports = {
   getUserOnboardingProgress,
   updateUserOnboardingProgress,
   completeOnboardingStep,
-  skipOnboardingStep
+  skipOnboardingStep,
+  getUserSettings,
+  updateUserSettings
 }; 
