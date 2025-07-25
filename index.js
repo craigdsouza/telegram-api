@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, getExpensesByInternalUserIdAndDateRange } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, getExpensesByInternalUserIdAndDateRange, getCurrentMonthExpensesByInternalUserId } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
