@@ -603,7 +603,6 @@ async function updateFamilySettings(familyMemberIds, settings) {
       SET month_start = $2, month_end = $3
       WHERE user_id = ANY($1)
       RETURNING user_id, first_name, last_name, month_start, month_end
-      ORDER BY user_id
     `;
     
     const result = await pool.query(query, [familyMemberIds, month_start, month_end]);
@@ -613,8 +612,11 @@ async function updateFamilySettings(familyMemberIds, settings) {
       return null;
     }
     
-    console.log('✅ [FAMILY SETTINGS] Successfully updated', result.rows.length, 'family members');
-    console.log('✅ [FAMILY SETTINGS] Updated members:', result.rows.map(row => ({ 
+    // Sort the results by user_id for consistent logging
+    const sortedRows = result.rows.sort((a, b) => a.user_id - b.user_id);
+    
+    console.log('✅ [FAMILY SETTINGS] Successfully updated', sortedRows.length, 'family members');
+    console.log('✅ [FAMILY SETTINGS] Updated members:', sortedRows.map(row => ({ 
       user_id: row.user_id, 
       name: `${row.first_name} ${row.last_name}`.trim(),
       month_start: row.month_start,
@@ -622,7 +624,7 @@ async function updateFamilySettings(familyMemberIds, settings) {
     })));
     
     // Return the first family member's settings (representing the family)
-    return result.rows[0];
+    return sortedRows[0];
   } catch (error) {
     console.error('❌ Error updating family settings:', error);
     throw error;
