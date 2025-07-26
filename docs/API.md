@@ -2,7 +2,40 @@
 
 This document describes all API endpoints available in the Telegram Finance Bot backend (`index.js`).
 
-## Authentication
+## 📑 Table of Contents
+
+- [Authentication](#authentication)
+  - [Development Bypass](#development-bypass)
+- [Health & Testing Endpoints](#health--testing-endpoints)
+  - [GET /ping](#get-ping)
+  - [GET /health](#get-health)
+  - [GET /test-db](#get-test-db)
+- [User Management](#user-management)
+  - [GET /api/user/:telegramId](#get-apiusertelegramid)
+  - [POST /api/user/validate](#post-apiuservalidate)
+- [Calendar & Expense Dates](#calendar--expense-dates)
+  - [GET /api/user/:telegramId/calendar/:year/:month](#get-apiusertelegramidcalendaryearmonth)
+- [Mission Progress](#mission-progress)
+  - [GET /api/user/:telegramId/missions](#get-apiusertelegramidmissions)
+- [Budget & Expenses](#budget--expenses)
+  - [GET /api/user/:telegramId/budget/current-month](#get-apiusertelegramidbudgetcurrent-month)
+  - [GET /api/user/:telegramId/expenses/current-month](#get-apiusertelegramidexpensescurrent-month)
+  - [GET /api/user/:telegramId/expenses/date-range](#get-apiusertelegramidexpensesdate-range)
+- [User Settings](#user-settings)
+  - [GET /api/user/:telegramId/settings](#get-apiusertelegramidsettings)
+  - [POST /api/user/:telegramId/settings](#post-apiusertelegramidsettings)
+- [Onboarding](#onboarding)
+  - [GET /api/user/:telegramId/onboarding](#get-apiusertelegramidonboarding)
+  - [POST /api/user/:telegramId/onboarding](#post-apiusertelegramidonboarding)
+- [Error Handling](#error-handling)
+- [Development Notes](#development-notes)
+  - [User ID Types](#user-id-types)
+  - [Authentication Flow](#authentication-flow)
+  - [Database Functions](#database-functions)
+
+---
+
+## Authentication [↑](#-table-of-contents)
 
 All protected endpoints require Telegram Mini App authentication using the `Authorization` header:
 
@@ -21,7 +54,7 @@ X-Dev-Bypass: true
 
 This only works for users listed in the `DEV_USER_IDS` environment variable.
 
-## Health & Testing Endpoints
+## Health & Testing Endpoints [↑](#-table-of-contents)
 
 ### GET /ping
 **Purpose**: Test if the API server is running
@@ -73,7 +106,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 
 **Usage**: Debugging database connectivity issues.
 
-## User Management
+## User Management [↑](#-table-of-contents)
 
 ### GET /api/user/:telegramId
 **Purpose**: Get user information by Telegram ID (legacy endpoint)
@@ -130,7 +163,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 - **Frontend**: Used for user authentication and validation
 - **Purpose**: Secure way to validate Telegram users and get their internal user ID
 
-## Calendar & Expense Dates
+## Calendar & Expense Dates [↑](#-table-of-contents)
 
 ### GET /api/user/:telegramId/expenses/dates
 **Purpose**: Get dates with expense entries for a specific month
@@ -158,7 +191,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 - **Frontend**: `CalendarView/Calendar.tsx` uses this to show which days have expenses
 - **Purpose**: Calendar visualization of expense activity
 
-## Mission Progress
+## Mission Progress [↑](#-table-of-contents)
 
 ### GET /api/user/:telegramId/missions
 **Purpose**: Get user's mission progress
@@ -186,7 +219,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 - **Frontend**: `MissionsPanel.tsx` uses this to display mission progress
 - **Purpose**: Gamification and user engagement tracking
 
-## Budget & Expenses
+## Budget & Expenses [↑](#-table-of-contents)
 
 ### GET /api/user/:telegramId/budget/current-month
 **Purpose**: Get budget and expense data for current month
@@ -292,7 +325,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 - **Frontend**: `ExpensesTable.tsx` uses this when custom start/end dates are set
 - **Purpose**: Display expenses for custom date ranges
 
-## User Settings
+## User Settings [↑](#-table-of-contents)
 
 ### GET /api/user/:internalUserId/settings
 **Purpose**: Get user settings (month start/end dates)
@@ -362,7 +395,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 - **Frontend**: `ProfileSettingsPanel.tsx` uses this to save user settings
 - **Purpose**: Update user's custom month start/end dates
 
-## Onboarding
+## Onboarding [↑](#-table-of-contents)
 
 ### GET /api/user/:telegramId/onboarding
 **Purpose**: Get user's onboarding progress
@@ -442,7 +475,7 @@ This only works for users listed in the `DEV_USER_IDS` environment variable.
 - **Frontend**: Onboarding components use this to update progress
 - **Purpose**: Update user onboarding completion status
 
-## Error Handling
+## Error Handling [↑](#-table-of-contents)
 
 All endpoints follow consistent error handling:
 
@@ -452,7 +485,7 @@ All endpoints follow consistent error handling:
 - **404 Not Found**: Resource not found
 - **500 Internal Server Error**: Server-side error
 
-## Development Notes
+## Development Notes [↑](#-table-of-contents)
 
 ### User ID Types
 - **Telegram User ID**: Long integer from Telegram (e.g., 123456789)

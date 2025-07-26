@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, getExpensesByInternalUserIdAndDateRange, getCurrentMonthExpensesByInternalUserId } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, updateFamilySettings, getExpensesByInternalUserIdAndDateRange, getCurrentMonthExpensesByInternalUserId } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -509,27 +509,52 @@ app.get('/api/user/:internalUserId/settings', validateTelegramInitData, async (r
   }
 });
 
-// Update user settings by internal user ID
+// Update user settings by internal user ID (with family synchronization)
 app.post('/api/user/:internalUserId/settings', validateTelegramInitData, async (req, res) => {
   try {
+    console.log('⚙️ [SETTINGS API] Starting settings update');
+    console.log('⚙️ [SETTINGS API] Validated user:', req.validatedInitData.user);
+    
     const internalUserId = parseInt(req.params.internalUserId);
     if (isNaN(internalUserId)) {
+      console.log('❌ [SETTINGS API] Invalid internal user ID:', req.params.internalUserId);
       return res.status(400).json({ error: 'Invalid internal user ID' });
     }
+    
     const { month_start, month_end } = req.body;
-    if (month_start !== null && month_start !== undefined && (month_start < 1 || month_start > 28)) {
-      return res.status(400).json({ error: 'month_start must be between 1 and 28 or null' });
+    console.log('⚙️ [SETTINGS API] Requested settings update:', { internalUserId, month_start, month_end });
+    
+    // Validate month_start
+    if (month_start !== null && month_start !== undefined) {
+      if (typeof month_start !== 'number' || month_start < 1 || month_start > 28) {
+        console.log('❌ [SETTINGS API] Invalid month_start value:', month_start);
+        return res.status(400).json({ error: 'month_start must be a number between 1 and 28, or null' });
+      }
     }
-    if (month_end !== null && month_end !== undefined && (month_end < 1 || month_end > 31)) {
-      return res.status(400).json({ error: 'month_end must be between 1 and 31 or null' });
+    
+    // Validate month_end
+    if (month_end !== null && month_end !== undefined) {
+      if (typeof month_end !== 'number' || month_end < 1 || month_end > 31) {
+        console.log('❌ [SETTINGS API] Invalid month_end value:', month_end);
+        return res.status(400).json({ error: 'month_end must be a number between 1 and 31, or null' });
+      }
     }
+    
+    console.log('⚙️ [SETTINGS API] Calling updateUserSettings with:', { internalUserId, month_start, month_end });
     const updated = await updateUserSettings(internalUserId, { month_start, month_end });
+    
     if (!updated) {
+      console.log('❌ [SETTINGS API] Settings not found for user:', internalUserId);
       return res.status(404).json({ error: 'Settings not found' });
     }
-    res.json({ settings: updated });
+    
+    console.log('✅ [SETTINGS API] Settings updated successfully:', updated);
+    res.json({ 
+      settings: updated,
+      message: 'Settings updated successfully. Family members synchronized if applicable.'
+    });
   } catch (error) {
-    console.error('Error updating user settings:', error);
+    console.error('❌ [SETTINGS API] Error updating user settings:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

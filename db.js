@@ -547,23 +547,84 @@ async function getUserSettings(userId) {
   }
 }
 
-// Update user settings by user_id
+// Update user settings by user_id (with family member synchronization)
 async function updateUserSettings(userId, settings) {
   try {
     const { month_start, month_end } = settings;
+    
+    console.log('⚙️ [SETTINGS] Updating settings for user:', userId);
+    console.log('⚙️ [SETTINGS] Requested settings:', { month_start, month_end });
+    console.log('⚙️ [SETTINGS] month_start type:', typeof month_start, 'value:', month_start);
+    console.log('⚙️ [SETTINGS] month_end type:', typeof month_end, 'value:', month_end);
+    
+    // First, check if this user is part of a family
+    const familyMemberIds = await getFamilyMemberIds(userId);
+    const isFamily = familyMemberIds.length > 1;
+    
+    console.log('⚙️ [SETTINGS] Is family member:', isFamily);
+    console.log('⚙️ [SETTINGS] Family member IDs:', familyMemberIds);
+    
+    if (isFamily) {
+      // Update settings for all family members
+      console.log('⚙️ [SETTINGS] Updating settings for all family members');
+      return await updateFamilySettings(familyMemberIds, settings);
+    } else {
+      // Update settings for individual user only
+      console.log('⚙️ [SETTINGS] Updating settings for individual user');
+      const query = `
+        UPDATE user_settings
+        SET month_start = $2, month_end = $3
+        WHERE user_id = $1
+        RETURNING user_id, first_name, last_name, month_start, month_end
+      `;
+      const result = await pool.query(query, [userId, month_start, month_end]);
+      if (result.rows.length === 0) {
+        return null;
+      }
+      return result.rows[0];
+    }
+  } catch (error) {
+    console.error('❌ Error updating user settings:', error);
+    throw error;
+  }
+}
+
+// Update settings for all family members
+async function updateFamilySettings(familyMemberIds, settings) {
+  try {
+    const { month_start, month_end } = settings;
+    
+    console.log('👨‍👩‍👧‍👦 [FAMILY SETTINGS] Updating settings for family members:', familyMemberIds);
+    console.log('👨‍👩‍👧‍👦 [FAMILY SETTINGS] New settings:', { month_start, month_end });
+    
+    // Update all family members' settings
     const query = `
       UPDATE user_settings
       SET month_start = $2, month_end = $3
-      WHERE user_id = $1
+      WHERE user_id = ANY($1)
       RETURNING user_id, first_name, last_name, month_start, month_end
+      ORDER BY user_id
     `;
-    const result = await pool.query(query, [userId, month_start, month_end]);
+    
+    const result = await pool.query(query, [familyMemberIds, month_start, month_end]);
+    
     if (result.rows.length === 0) {
+      console.log('❌ [FAMILY SETTINGS] No family members found to update');
       return null;
     }
+    
+    console.log('✅ [FAMILY SETTINGS] Successfully updated', result.rows.length, 'family members');
+    console.log('✅ [FAMILY SETTINGS] Updated members:', result.rows.map(row => ({ 
+      user_id: row.user_id, 
+      name: `${row.first_name} ${row.last_name}`.trim(),
+      month_start: row.month_start,
+      month_end: row.month_end
+    })));
+    
+    // Return the first family member's settings (representing the family)
     return result.rows[0];
   } catch (error) {
-    console.error('❌ Error updating user settings:', error);
+    console.error('❌ Error updating family settings:', error);
     throw error;
   }
 }
@@ -599,5 +660,6 @@ module.exports = {
   skipOnboardingStep,
   getUserSettings,
   updateUserSettings,
+  updateFamilySettings,
   getExpensesByInternalUserIdAndDateRange
 }; 
