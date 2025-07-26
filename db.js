@@ -252,15 +252,71 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
     }
     
     const userId = userResult.rows[0].id;
+    
+    // Get user settings to check for custom month start/end
+    const userSettings = await getUserSettings(userId);
+    console.log('💰 [BUDGET] User settings:', userSettings);
+    
     // Get family member IDs
     const familyMemberIds = await getFamilyMemberIds(userId);
     const isFamily = familyMemberIds.length > 1;
     const familyMembers = familyMemberIds.length;
     
-    // Use the provided year and month instead of current date
-    // month is 1-indexed (1-12), so we need to convert to 0-indexed for Date constructor
-    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0); // First day of month at 00:00:00
-    const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0); // First day of next month at 00:00:00
+    // Calculate custom month period based on user settings
+    let startOfPeriod, endOfPeriod, currentDayInPeriod, totalDaysInPeriod;
+    
+    if (userSettings && userSettings.month_start !== null) {
+      // Custom month period (e.g., 15th to 14th)
+      const monthStart = userSettings.month_start;
+      
+      // Calculate start of current period
+      if (monthStart <= new Date().getDate()) {
+        // Current period started this month
+        startOfPeriod = new Date(year, month - 1, monthStart, 0, 0, 0, 0);
+      } else {
+        // Current period started last month
+        startOfPeriod = new Date(year, month - 2, monthStart, 0, 0, 0, 0);
+      }
+      
+      // Calculate end of current period
+      endOfPeriod = new Date(startOfPeriod);
+      endOfPeriod.setMonth(endOfPeriod.getMonth() + 1);
+      endOfPeriod.setDate(monthStart - 1);
+      
+      // Calculate current day within the period
+      const today = new Date();
+      if (today >= startOfPeriod && today < endOfPeriod) {
+        const diffTime = today - startOfPeriod;
+        currentDayInPeriod = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      } else {
+        currentDayInPeriod = 1; // Default to first day if outside period
+      }
+      
+      // Calculate total days in period
+      const periodDiffTime = endOfPeriod - startOfPeriod;
+      totalDaysInPeriod = Math.floor(periodDiffTime / (1000 * 60 * 60 * 24)) + 1;
+      
+      console.log('💰 [BUDGET] Custom period calculation:', {
+        monthStart,
+        startOfPeriod: startOfPeriod.toISOString(),
+        endOfPeriod: endOfPeriod.toISOString(),
+        currentDayInPeriod,
+        totalDaysInPeriod
+      });
+    } else {
+      // Standard calendar month (1st to last day)
+      startOfPeriod = new Date(year, month - 1, 1, 0, 0, 0, 0);
+      endOfPeriod = new Date(year, month, 1, 0, 0, 0, 0);
+      currentDayInPeriod = new Date().getDate();
+      totalDaysInPeriod = new Date(year, month, 0).getDate();
+      
+      console.log('💰 [BUDGET] Standard calendar month:', {
+        startOfPeriod: startOfPeriod.toISOString(),
+        endOfPeriod: endOfPeriod.toISOString(),
+        currentDayInPeriod,
+        totalDaysInPeriod
+      });
+    }
     
     let budget = null;
     let totalExpenses = 0;
@@ -277,7 +333,7 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
         `SELECT COALESCE(SUM(amount), 0) as total_amount
          FROM expenses
          WHERE user_id = ANY($1) AND date >= $2 AND date < $3`,
-        [familyMemberIds, startOfMonth, endOfMonth]
+        [familyMemberIds, startOfPeriod, endOfPeriod]
       );
       totalExpenses = expensesResult.rows[0].total_amount;
     } else {
@@ -287,20 +343,18 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
         `SELECT COALESCE(SUM(amount), 0) as total_amount
          FROM expenses
          WHERE user_id = $1 AND date >= $2 AND date < $3`,
-        [userId, startOfMonth, endOfMonth]
+        [userId, startOfPeriod, endOfPeriod]
       );
       totalExpenses = expenses.rows[0].total_amount;
     }
     
-    // Calculate percentages
-    const currentDateOfMonth = new Date().getDate(); // Current day of month
-    const daysInMonth = new Date(year, month, 0).getDate(); // Days in the specified month
-    const datePercentage = (currentDateOfMonth / daysInMonth) * 100;
+    // Calculate percentages using custom period
+    const datePercentage = (currentDayInPeriod / totalDaysInPeriod) * 100;
     const budgetPercentage = budget && budget > 0 ? (totalExpenses / budget) * 100 : 0;
     
     console.log('💰 [BUDGET] Calculated percentages:', {
-      currentDateOfMonth,
-      daysInMonth,
+      currentDayInPeriod,
+      totalDaysInPeriod,
       datePercentage,
       budgetPercentage
     });
@@ -308,13 +362,16 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
     const result = {
       totalExpenses,
       budget,
-      currentDate: currentDateOfMonth,
-      daysInMonth,
+      currentDate: currentDayInPeriod,
+      daysInMonth: totalDaysInPeriod,
       budgetPercentage: Math.min(budgetPercentage, 100), // Cap at 100%
       datePercentage,
       currency: 'INR',
       isFamily,
-      familyMembers
+      familyMembers,
+      customPeriod: userSettings && userSettings.month_start !== null,
+      periodStart: startOfPeriod.toISOString(),
+      periodEnd: endOfPeriod.toISOString()
     };
     
     console.log('💰 [BUDGET] Final result:', result);
