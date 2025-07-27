@@ -401,7 +401,7 @@ async function getCurrentMonthExpenses(telegramUserId, year, month) {
     const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
     // Query for all expenses for this user in the given month
     const result = await pool.query(
-      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description
+      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
        WHERE user_id = $1 AND date >= $2 AND date < $3
        ORDER BY date ASC`,
@@ -420,7 +420,7 @@ async function getCurrentMonthExpensesByInternalUserId(userId, year, month) {
     const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const endOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
     const result = await pool.query(
-      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description
+      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
        WHERE user_id = $1 AND date >= $2 AND date < $3
        ORDER BY date ASC`,
@@ -692,7 +692,7 @@ async function updateFamilySettings(familyMemberIds, settings) {
 async function getExpensesByInternalUserIdAndDateRange(userId, startDate, endDate) {
   try {
     const result = await pool.query(
-      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description
+      `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
        WHERE user_id = $1 AND date >= $2 AND date <= $3
        ORDER BY date ASC`,
@@ -701,6 +701,41 @@ async function getExpensesByInternalUserIdAndDateRange(userId, startDate, endDat
     return result.rows;
   } catch (error) {
     console.error('❌ [DB] Error fetching expenses by internal user ID and date range:', error);
+    throw error;
+  }
+}
+
+// Create a new expense
+async function createExpense(userId, expenseData) {
+  try {
+    const { date, amount, category, description, mode = 'CASH' } = expenseData;
+    
+    // Validate required fields
+    if (!date || !amount || !category) {
+      throw new Error('Missing required fields: date, amount, category');
+    }
+    
+    // Validate mode
+    const validModes = ['UPI', 'CASH', 'DEBIT CARD', 'CREDIT CARD'];
+    if (!validModes.includes(mode)) {
+      throw new Error(`Invalid mode. Must be one of: ${validModes.join(', ')}`);
+    }
+    
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('Amount must be a positive number');
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO expenses (user_id, date, amount, category, description, mode)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode`,
+      [userId, date, amount, category, description, mode]
+    );
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ [DB] Error creating expense:', error);
     throw error;
   }
 }
@@ -720,5 +755,6 @@ module.exports = {
   getUserSettings,
   updateUserSettings,
   updateFamilySettings,
-  getExpensesByInternalUserIdAndDateRange
+  getExpensesByInternalUserIdAndDateRange,
+  createExpense
 }; 

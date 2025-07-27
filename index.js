@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
-const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, updateFamilySettings, getExpensesByInternalUserIdAndDateRange, getCurrentMonthExpensesByInternalUserId } = require('./db');
+const { testConnection, getUserByTelegramId, getExpenseEntryDatesForMonth, getUserMissionProgress, getCurrentMonthBudgetData, getCurrentMonthExpenses, getUserOnboardingProgress, updateUserOnboardingProgress, completeOnboardingStep, skipOnboardingStep, getUserSettings, updateUserSettings, updateFamilySettings, getExpensesByInternalUserIdAndDateRange, getCurrentMonthExpensesByInternalUserId, createExpense } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -574,6 +574,62 @@ app.get('/api/user/:internalUserId/expenses/range', validateTelegramInitData, as
     res.json({ expenses });
   } catch (error) {
     console.error('❌ [EXPENSES RANGE] Error in /api/user/:internalUserId/expenses/range:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new expense
+app.post('/api/expenses', validateTelegramInitData, async (req, res) => {
+  try {
+    console.log('💰 [EXPENSES API] Starting expense creation');
+    console.log('💰 [EXPENSES API] Validated user:', req.validatedInitData.user);
+    console.log('💰 [EXPENSES API] Request body:', req.body);
+    
+    const { date, amount, category, description, mode } = req.body;
+    
+    // Validate required fields
+    if (!date || !amount || !category) {
+      console.log('❌ [EXPENSES API] Missing required fields');
+      return res.status(400).json({ error: 'Missing required fields: date, amount, category' });
+    }
+    
+    // Get the internal user ID from the validated init data
+    const telegramUserId = req.validatedInitData.user.id;
+    const user = await getUserByTelegramId(telegramUserId);
+    
+    if (!user) {
+      console.log('❌ [EXPENSES API] User not found for telegram ID:', telegramUserId);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const internalUserId = user.id;
+    console.log('💰 [EXPENSES API] Creating expense for internal user ID:', internalUserId);
+    
+    // Create the expense
+    const newExpense = await createExpense(internalUserId, {
+      date,
+      amount: parseFloat(amount),
+      category,
+      description: description || null,
+      mode: mode || 'CASH'
+    });
+    
+    console.log('✅ [EXPENSES API] Expense created successfully:', newExpense);
+    res.status(201).json({ 
+      expense: newExpense,
+      message: 'Expense created successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ [EXPENSES API] Error creating expense:', error);
+    
+    // Handle specific validation errors
+    if (error.message.includes('Invalid mode') || 
+        error.message.includes('Amount must be') ||
+        error.message.includes('Missing required fields')) {
+      return res.status(400).json({ error: error.message });
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 });
