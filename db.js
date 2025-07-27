@@ -404,7 +404,7 @@ async function getCurrentMonthExpenses(telegramUserId, year, month) {
       `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
        WHERE user_id = $1 AND date >= $2 AND date < $3
-       ORDER BY date ASC`,
+       ORDER BY date DESC`,
       [userId, startOfMonth, endOfMonth]
     );
     return result.rows;
@@ -423,7 +423,7 @@ async function getCurrentMonthExpensesByInternalUserId(userId, year, month) {
       `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
        WHERE user_id = $1 AND date >= $2 AND date < $3
-       ORDER BY date ASC`,
+       ORDER BY date DESC`,
       [userId, startOfMonth, endOfMonth]
     );
     return result.rows;
@@ -695,7 +695,7 @@ async function getExpensesByInternalUserIdAndDateRange(userId, startDate, endDat
       `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
        WHERE user_id = $1 AND date >= $2 AND date <= $3
-       ORDER BY date ASC`,
+       ORDER BY date DESC`,
       [userId, startDate, endDate]
     );
     return result.rows;
