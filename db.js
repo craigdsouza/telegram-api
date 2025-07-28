@@ -691,6 +691,13 @@ async function updateFamilySettings(familyMemberIds, settings) {
 // Get all expenses for a user by internal user ID and date range
 async function getExpensesByInternalUserIdAndDateRange(userId, startDate, endDate) {
   try {
+    console.log('🔍 [DB RANGE] Query parameters:', { userId, startDate, endDate });
+    console.log('🔍 [DB RANGE] Query types:', { 
+      userId: typeof userId, 
+      startDate: typeof startDate, 
+      endDate: typeof endDate 
+    });
+    
     const result = await pool.query(
       `SELECT id, TO_CHAR(date, 'YYYY-MM-DD') as date, amount, category, description, mode
        FROM expenses
@@ -698,6 +705,10 @@ async function getExpensesByInternalUserIdAndDateRange(userId, startDate, endDat
        ORDER BY date DESC`,
       [userId, startDate, endDate]
     );
+    
+    console.log('🔍 [DB RANGE] Query result rows:', result.rows.length);
+    console.log('🔍 [DB RANGE] First few rows:', result.rows.slice(0, 3));
+    
     return result.rows;
   } catch (error) {
     console.error('❌ [DB] Error fetching expenses by internal user ID and date range:', error);
