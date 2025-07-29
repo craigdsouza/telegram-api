@@ -122,23 +122,7 @@ const validateTelegramInitData = (req, res, next) => {
 
 // Test route to verify the server is working
 app.get('/ping', (req, res) => {
-  console.log('🏓 [PING] Ping request received');
-  console.log('🏓 [PING] Request headers:', req.headers);
-  console.log('🏓 [PING] Request origin:', req.get('origin'));
-  console.log('🏓 [PING] Request referer:', req.get('referer'));
-  console.log('🏓 [PING] Request host:', req.get('host'));
-  console.log('🏓 [PING] Request URL:', req.url);
-  
-  res.json({ 
-    message: 'API is running!', 
-    timestamp: new Date().toISOString(),
-    requestInfo: {
-      origin: req.get('origin'),
-      referer: req.get('referer'),
-      host: req.get('host'),
-      userAgent: req.get('user-agent')
-    }
-  });
+  res.json({ message: 'API is running!', timestamp: new Date().toISOString() });
 });
 
 // Health check route for Railway
