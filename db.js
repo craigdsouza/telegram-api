@@ -328,21 +328,21 @@ async function getCurrentMonthBudgetData(telegramUserId, year, month) {
         [familyMemberIds]
       );
       budget = budgetResult.rows.length ? budgetResult.rows[0].budget : null;
-      // Get combined expenses for all family members
+      // Get combined expenses for all family members (excluding Transfers)
       const expensesResult = await pool.query(
         `SELECT COALESCE(SUM(amount), 0) as total_amount
          FROM expenses
-         WHERE user_id = ANY($1) AND date >= $2 AND date < $3`,
+         WHERE user_id = ANY($1) AND date >= $2 AND date < $3 AND category != 'Transfers'`,
         [familyMemberIds, startOfPeriod, endOfPeriod]
       );
       totalExpenses = expensesResult.rows[0].total_amount;
     } else {
       budget = userResult.rows[0].budget;
-      // Individual expenses
+      // Individual expenses (excluding Transfers)
       const expenses = await pool.query(
         `SELECT COALESCE(SUM(amount), 0) as total_amount
          FROM expenses
-         WHERE user_id = $1 AND date >= $2 AND date < $3`,
+         WHERE user_id = $1 AND date >= $2 AND date < $3 AND category != 'Transfers'`,
         [userId, startOfPeriod, endOfPeriod]
       );
       totalExpenses = expenses.rows[0].total_amount;
